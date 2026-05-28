@@ -72,7 +72,7 @@ apply_rhdh_manifest_cleanup() {
       .spec.podTemplate.container.env |= (
         (. // []) | map(select(.name != "GHTOKEN"))
       )
-      | (if .spec.podTemplate.container.env == [] then del(.spec.podTemplate.container.env) else . end)
+      | del(.spec.podTemplate.container.env | select(length == 0))
     ' "${SONATAFLOW_CR}"
     rm -f manifests/*secret*.yaml
     cleanup_generated_manifests
