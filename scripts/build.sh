@@ -8,7 +8,6 @@ script_name="${BASH_SOURCE:-$0}"
 # Default container images
 DEFAULT_BUILDER_IMAGE="registry.redhat.io/openshift-serverless-1/logic-swf-builder-rhel9:1.38.0-3"
 DEFAULT_RUNTIME_IMAGE="registry.access.redhat.com/ubi9/openjdk-17:1.21-2"
-
 # Logger functions
 RED='\033[0;31m'
 YELLOW='\033[0;33m'
@@ -132,7 +131,7 @@ function get_workflow_id {
     local workflow_file=""
     local workflow_id=""
 
-    workflow_file=$(findw "$workdir" -type f -regex '.*\.sw\.ya?ml$')
+    workflow_file=$(findw "$workdir" -type f -regex '.*\.sw\.ya?ml$' -not -path '*/subflows/*')
     if [ -z "$workflow_file" ]; then
         log_error "No workflow file found with *.sw.yaml or *.sw.yml suffix in: $workdir"
         return 10
@@ -230,9 +229,10 @@ EOF
 function create_default_dockerfile() {
     local dockerfile_path="$1"
     cat > "$dockerfile_path" << 'EOF'
+ARG BUILDER_IMAGE
+ARG RUNTIME_IMAGE
 
-
-FROM registry.redhat.io/openshift-serverless-1/logic-swf-builder-rhel9:1.38.0-3 AS builder
+FROM ${BUILDER_IMAGE} AS builder
 
 # Variables that can be overridden by the builder
 # To add a Quarkus extension to your application
@@ -243,21 +243,26 @@ ENV QUARKUS_EXTENSIONS=${QUARKUS_EXTENSIONS}
 ARG MAVEN_ARGS_APPEND
 ENV MAVEN_ARGS_APPEND=${MAVEN_ARGS_APPEND}
 
-COPY --chown=1001 . .
-
 # Copy from build context to skeleton resources project
 COPY --chown=1001 . ./resources/
 RUN ls -la ./resources
+RUN ls -la .
+RUN ls -la ./src/main/resources
 
 ENV swf_home_dir=/home/kogito/serverless-workflow-project
+# In case of quarkus layout, flatten the directory
 RUN if [[ -d "./resources/src" ]]; then cp -r ./resources/src/* ./src/; fi
+RUN if [[ -d "./resources/src" ]]; then mv ./resources/src/main/resources/* ./resources/.; fi
+
+RUN ls -la ./resources
+RUN ls -la .
 
 RUN /home/kogito/launch/build-app.sh ./resources
 
 #=============================
 # Runtime
 #=============================
-FROM registry.access.redhat.com/ubi9/openjdk-17:1.21-2
+FROM ${RUNTIME_IMAGE}
 
 ENV LANGUAGE='en_US:en' LANG='en_US.UTF-8' 
 
@@ -397,7 +402,10 @@ function gen_manifests {
     
     # Validate resource directory exists
     validate_directory "$res_dir_path" "Workflow resources"
-    
+
+    log_info "Remove any target folder from: $res_dir_path"
+    find $res_dir_path -type d -name target -exec rm -rf {} +
+
     local workflow_id
     workflow_id="$(get_workflow_id "$res_dir_path")"
     log_info "Found workflow ID: $workflow_id"
@@ -416,6 +424,11 @@ function gen_manifests {
     else
         gen_manifest_args+=(--namespace="${args["namespace"]}")
         log_info "Generating manifests for namespace: ${args["namespace"]}"
+    fi
+    
+    if [[ -z "${args["non-quarkus"]:-}" ]]; then
+        cd src/main/resources
+        log_info "Generating manifests from: $res_dir_path/src/main/resources"
     fi
     
     log_info "Running: kn-workflow gen-manifest ${gen_manifest_args[*]}"
@@ -530,13 +543,14 @@ function build_image {
     if [[ -n "${args["dockerfile"]:-}" ]]; then
         # Use pre-resolved dockerfile path from parse_args
         dockerfile_path="${args["dockerfile"]}"
-        echo >&2 -e "${GREEN}INFO: Using custom dockerfile: $dockerfile_path${DEFAULT}"
+        log_info "Using custom dockerfile: $dockerfile_path${DEFAULT}"
     else
         # Create temporary dockerfile from embedded content
         dockerfile_path="$(mktemp -t dockerfile.XXXXXX)"
-        
+        dockerignore_path="${dockerfile_path}.dockerignore"
+
         temp_dockerfile_created=true
-        echo >&2 -e "${GREEN}INFO: Using embedded default dockerfile (temporary file: $dockerfile_path)${DEFAULT}"
+        log_info "Using embedded default dockerfile (temporary file: $dockerfile_path)${DEFAULT}"
         
         if ! create_default_dockerfile "$dockerfile_path"; then
             log_error "Failed to create temporary dockerfile"
@@ -544,8 +558,8 @@ function build_image {
         fi
 
         if [[ -z "${args["non-quarkus"]:-}" ]]; then
+            log_info "Using quarkus layout, creating temporary file $dockerignore_path"
             dockerignore_path="${dockerfile_path}.dockerignore"
-            echo >&2 -e "${GREEN}INFO: Using quarkus layout, creating temporary file $dockerignore_path"
             if ! create_default_dockerignore "$dockerignore_path"; then
                 log_error "Failed to create temporary dockerignore"
                 return 20
@@ -564,11 +578,13 @@ function build_image {
         --build-arg="QUARKUS_EXTENSIONS=${base_quarkus_extensions}"
         --build-arg="MAVEN_ARGS_APPEND=${base_maven_args_append}"
     )
+    [[ -n "${dockerignore_path:-}" && -f "${dockerignore_path}" && "$DETECTED_CONTAINER_ENGINE" != "docker" ]] && container_args+=(--ignorefile="$dockerignore_path")
     [[ -n "${args["builder-image"]:-}" ]] && container_args+=(--build-arg="BUILDER_IMAGE=${args["builder-image"]}")
     [[ -n "${args["runtime-image"]:-}" ]] && container_args+=(--build-arg="RUNTIME_IMAGE=${args["runtime-image"]}")
 
     log_info "Starting container build (this may take several minutes)..."
-    if ! container_engine build --no-cache "${container_args[@]}" "${args["workflow-directory"]}"; then
+    echo "container_engine build --progress=plain --no-cache ${container_args[@]} " ${args["workflow-directory"]}
+    if ! container_engine build --progress=plain --no-cache "${container_args[@]}" "${args["workflow-directory"]}"; then
         log_error "Container build failed"
         # Retain temporary dockerfile for debugging if created
         if [[ "$temp_dockerfile_created" == true ]]; then
