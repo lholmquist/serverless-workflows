@@ -404,7 +404,7 @@ function gen_manifests {
     validate_directory "$res_dir_path" "Workflow resources"
 
     log_info "Remove any target folder from: $res_dir_path"
-    find $res_dir_path -type d -name target -exec rm -rf {} +
+    find "$res_dir_path" -type d -name target -exec rm -rf {} +
 
     local workflow_id
     workflow_id="$(get_workflow_id "$res_dir_path")"
@@ -583,7 +583,7 @@ function build_image {
     [[ -n "${args["runtime-image"]:-}" ]] && container_args+=(--build-arg="RUNTIME_IMAGE=${args["runtime-image"]}")
 
     log_info "Starting container build (this may take several minutes)..."
-    echo "container_engine build --progress=plain --no-cache ${container_args[@]} " ${args["workflow-directory"]}
+    echo "container_engine build --progress=plain --no-cache ${container_args[*]} \"${args["workflow-directory"]}\""
     if ! container_engine build --progress=plain --no-cache "${container_args[@]}" "${args["workflow-directory"]}"; then
         log_error "Container build failed"
         # Retain temporary dockerfile for debugging if created
