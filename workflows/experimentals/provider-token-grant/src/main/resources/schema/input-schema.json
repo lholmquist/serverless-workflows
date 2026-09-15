@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "grantId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Opaque secure-token-storage grant identifier"
+    },
+    "provider": {
+      "type": "string",
+      "const": "github",
+      "description": "Provider selected for this prototype"
+    }
+  },
+  "required": ["grantId", "provider"],
+  "additionalProperties": false
+}

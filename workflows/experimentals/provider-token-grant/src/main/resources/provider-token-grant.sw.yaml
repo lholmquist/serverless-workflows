@@ -1,0 +1,30 @@
+specVersion: "0.8"
+id: provider-token-grant
+name: Provider Token Grant Consumer
+description: >-
+  Experimental call-time provider-token retrieval. The workflow passes an
+  opaque grant reference to a custom operation; the operation retrieves a
+  short-lived token and uses it immediately for a provider API call.
+annotations:
+  - "workflow-type/experimental"
+version: 0.1.0
+start: GetProviderProfile
+dataInputSchema: schema/input-schema.json
+functions:
+  - name: getProviderProfile
+    type: custom
+    operation: >-
+      service:java:io.rhdhorchestrator.workflow.providertoken.ProviderTokenConsumer::getGithubProfile
+states:
+  - name: GetProviderProfile
+    type: operation
+    actions:
+      - name: callProvider
+        functionRef:
+          refName: getProviderProfile
+          arguments:
+            grantId: .grantId
+            provider: .provider
+        actionDataFilter:
+          toStateData: .profile
+    end: true
