@@ -15,9 +15,8 @@
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.24.4</quarkus.platform.version>
-    <kogito.bom.artifact-id>kogito-bom</kogito.bom.artifact-id>
-    <kogito.bom.group-id>org.kie.kogito</kogito.bom.group-id>
-    <kogito.bom.version>10.1.0</kogito.bom.version>
+    <kie.version>9.104.0.redhat-00005</kie.version>
+    <kie.tooling.version>1.37.1</kie.tooling.version>
   </properties>
 
   <dependencyManagement>
@@ -30,9 +29,9 @@
         <scope>import</scope>
       </dependency>
       <dependency>
-        <groupId>${kogito.bom.group-id}</groupId>
-        <artifactId>${kogito.bom.artifact-id}</artifactId>
-        <version>${kogito.bom.version}</version>
+        <groupId>org.kie.kogito</groupId>
+        <artifactId>kogito-bom</artifactId>
+        <version>${kie.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -41,14 +40,12 @@
 
   <dependencies>
     <dependency>
-      <groupId>org.kie.kogito</groupId>
-      <artifactId>kogito-quarkus-serverless-workflow</artifactId>
-      <version>${kogito.bom.version}</version>
+      <groupId>org.kie</groupId>
+      <artifactId>kie-addons-quarkus-process-management</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.kie.kogito</groupId>
-      <artifactId>kogito-addons-quarkus-source-files</artifactId>
-      <version>${kogito.bom.version}</version>
+      <groupId>org.kie</groupId>
+      <artifactId>kie-addons-quarkus-source-files</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.kie.sonataflow</groupId>
@@ -57,11 +54,11 @@
     <dependency>
       <groupId>org.apache.kie.sonataflow</groupId>
       <artifactId>sonataflow-quarkus-devui</artifactId>
-      <version>${kogito.bom.version}</version>
+      <version>${kie.version}</version>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-rest-jackson</artifactId>
+      <artifactId>quarkus-resteasy-jackson</artifactId>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
@@ -101,4 +98,13 @@
       </plugin>
     </plugins>
   </build>
+
+  <repositories>
+    <repository>
+      <id>apache-public-repository-group</id>
+      <url>https://repository.apache.org/content/groups/public/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>false</enabled></snapshots>
+    </repository>
+  </repositories>
 </project>

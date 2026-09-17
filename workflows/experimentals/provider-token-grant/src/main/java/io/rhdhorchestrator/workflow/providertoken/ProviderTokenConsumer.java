@@ -33,11 +33,7 @@ public class ProviderTokenConsumer {
     @ConfigProperty(name = "github.profile-url")
     String githubProfileUrl;
 
-    private final ObjectMapper objectMapper;
-
-    public ProviderTokenConsumer(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * Retrieves a short-lived GitHub access token and immediately uses it for
